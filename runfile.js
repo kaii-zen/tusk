@@ -1,7 +1,9 @@
 const Listr = require('listr')
 const { exec } = require('./lib/exec')
 const { Subject } = require('rxjs/Subject')
+const { Observable } = require('rxjs/Observable')
 const { forkJoin } = require('rxjs/observable/forkJoin')
+const { concat } = require('rxjs/observable/concat')
 const { yellow, green } = require('chalk')
 
 const sleep = d => () => exec('sleep', [d.toString()])
@@ -87,26 +89,17 @@ const runTask = taskName => {
           })
         })
 
-        return forkJoin(...dependencies.map(dep => ctx[dep])).do(() => console.log('NEXT'), () => console.log('ERR'), (res) => console.log('FIN', res))
+        return concat(forkJoin(...dependencies.map(dep => ctx[dep])), Observable.of(0))
           .flatMap(() => action())
           .do(null, null, () => {
             task.title += ' - done!'
             ctx[name].next('done')
             ctx[name].complete()
           })
-
-        // {
-        // return action().toPromise().then(() => {
-        // console.log(action)
-        // return action().do(null, null, () => {
-        //   task.title += ' - done!'
-        //   ctx[name].next('done')
-        //   return ctx[name].complete()
-        // })
       }
     }
     )),
-    { concurrent: true, renderer: 'verbose' }
+    { concurrent: true, renderer: 'default' }
   ).run(context)
 }
 
