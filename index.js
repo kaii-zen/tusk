@@ -69,7 +69,10 @@ class Tusk {
       }
       )),
       { concurrent: true, renderer: 'default' }
-    ).run(context)
+    ).run(context).catch(err => {
+      console.error('\n', err.message)
+      process.exit(1)
+    })
   }
 
   expandDependencies (task) {
