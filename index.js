@@ -24,8 +24,8 @@ class Tusk {
   }
 
   run (task) {
-    const result = this.expandDependencies(task)
-    const context = result.reduce((acc, { name }) => {
+    const expandedDependencies = this.expandDependencies(task)
+    const context = expandedDependencies.reduce((acc, { name }) => {
       const subject = new Subject()
       subject.completed = false
       subject.subscribe(null, null, () => (subject.completed = true))
@@ -36,7 +36,7 @@ class Tusk {
     }, {})
 
     return new Listr(
-      result.map(({ name, action, dependencies }) => ({
+      expandedDependencies.map(({ name, action, dependencies }) => ({
         title: name +
         (dependencies.length > 0
           ? ` [ ${yellow(dependencies.join(' '))} ]`
