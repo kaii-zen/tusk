@@ -1,7 +1,6 @@
 const Listr = require('listr')
 const { exec } = require('./lib/exec')
 const { Subject } = require('rxjs/Subject')
-const { Observable } = require('rxjs/Observable')
 const { forkJoin } = require('rxjs/observable/forkJoin')
 const { yellow, green } = require('chalk')
 
@@ -57,7 +56,6 @@ const runTask = taskName => {
   const result = expandDependencies(taskName)
   const context = result.reduce((acc, { name }) => {
     const subject = new Subject()
-    subject.next(name)
     subject.completed = false
     subject.subscribe(null, null, () => (subject.completed = true))
     return {
@@ -75,6 +73,7 @@ const runTask = taskName => {
       task: (ctx, task) => {
         const dependencies$ = dependencies.map(dep => [dep, ctx[dep]])
         dependencies$.forEach(([dep, dep$]) => {
+          dep$.next(name)
           dep$.subscribe(null, null, () => {
             task.title =
               name +
@@ -88,24 +87,26 @@ const runTask = taskName => {
           })
         })
 
-        return Observable.fromPromise(
-          forkJoin(
-            ...dependencies.map(dep => {
-              return ctx[dep]
-            })
-          )
-            .toPromise()
-            .then(result => {
-              return action().toPromise().then(() => {
-                task.title += ' - done!'
-                ctx[name].next('done')
-                return ctx[name].complete()
-              })
-            })
-        )
+        return forkJoin(...dependencies.map(dep => ctx[dep])).do(() => console.log('NEXT'), () => console.log('ERR'), (res) => console.log('FIN', res))
+          .flatMap(() => action())
+          .do(null, null, () => {
+            task.title += ' - done!'
+            ctx[name].next('done')
+            ctx[name].complete()
+          })
+
+        // {
+        // return action().toPromise().then(() => {
+        // console.log(action)
+        // return action().do(null, null, () => {
+        //   task.title += ' - done!'
+        //   ctx[name].next('done')
+        //   return ctx[name].complete()
+        // })
       }
-    })),
-    { concurrent: true, renderer: 'default' }
+    }
+    )),
+    { concurrent: true, renderer: 'verbose' }
   ).run(context)
 }
 
