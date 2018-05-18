@@ -4,6 +4,9 @@ const { Observable } = require('rxjs/Observable')
 const { forkJoin } = require('rxjs/observable/forkJoin')
 const { concat } = require('rxjs/observable/concat')
 const { yellow, green } = require('chalk')
+const { exec } = require('./lib/exec')
+
+const noop = () => exec('true')
 
 class Tusk {
   constructor (input) {
@@ -16,7 +19,7 @@ class Tusk {
             : value.dependencies ? value.dependencies : [],
           action: typeof value === 'function'
             ? value
-            : value.action ? value.action : null
+            : value.action ? value.action : noop
         }
       }),
       {}
@@ -25,6 +28,7 @@ class Tusk {
 
   run (task) {
     const expandedDependencies = this.expandDependencies(task)
+
     const context = expandedDependencies.reduce((acc, { name }) => {
       const subject = new Subject()
       subject.completed = false
@@ -36,17 +40,21 @@ class Tusk {
     }, {})
 
     return new Listr(
-      expandedDependencies.map(({ name, action, dependencies }) => ({
-        title: name +
+      expandedDependencies
+        .filter(dep => dep.action !== noop)
+        .map(({ name, action, dependencies }) => ({
+          title: name +
         (dependencies.length > 0
           ? ` [ ${yellow(dependencies.join(' '))} ]`
           : ''),
-        task: (ctx, task) => {
-          const dependencies$ = dependencies.map(dep => [dep, ctx[dep]])
-          dependencies$.forEach(([dep, dep$]) => {
-            dep$.next(name)
-            dep$.subscribe(null, null, () => {
-              task.title =
+          task: (ctx, task) => {
+            const dependencies$ = dependencies.map(dep => [dep, ctx[dep]])
+            dependencies$.forEach(([dep, dep$]) => {
+              if (!dep$) return
+
+              dep$.next(name)
+              dep$.subscribe(null, null, () => {
+                task.title =
               name +
               (dependencies.length > 0
                 ? ` [ ${dependencies$
@@ -55,19 +63,19 @@ class Tusk {
                   )
                   .join(' ')} ]`
                 : '')
+              })
             })
-          })
 
-          return concat(forkJoin(...dependencies.map(dep => ctx[dep])), Observable.of(0))
-            .flatMap(() => action())
-            .do(null, null, () => {
-              task.title += ' - done!'
-              ctx[name].next('done')
-              ctx[name].complete()
-            })
+            return concat(forkJoin(...dependencies.map(dep => ctx[dep] ? ctx[dep] : Promise.resolve())), Observable.of(0))
+              .flatMap(() => action())
+              .do(null, null, () => {
+                task.title += ' - done!'
+                ctx[name].next('done')
+                ctx[name].complete()
+              })
+          }
         }
-      }
-      )),
+        )),
       { concurrent: true, renderer: 'default' }
     ).run(context).catch(err => {
       console.error('\n', err.message)
@@ -76,15 +84,15 @@ class Tusk {
   }
 
   expandDependencies (task) {
-    const { dependencies } = this.input[task]
-    return Array.prototype.concat(
-      ...dependencies.map(
-        dep =>
-          (this.input[dep].action
-            ? { ...this.input[dep], name: dep }
-            : this.expandDependencies(dep))
-      )
-    )
+    return this.collectDependencies(task).map(dep => ({ ...this.input[dep], name: dep }))
+  }
+
+  collectDependencies (task, acc = new Set([task])) {
+    const dependencies = this.input[task].dependencies.filter(dep => !acc.has(dep))
+    if (dependencies.length === 0) {
+      return [...acc]
+    }
+    return [...new Set(Array.prototype.concat(...dependencies.map(dep => this.collectDependencies(dep, new Set([...acc, dep])))))]
   }
 }
 
