@@ -3,7 +3,6 @@ services:
   verdaccio:
     image: verdaccio/verdaccio:2.7
     restart: always
-    container_name: verdaccio
     network_mode: ${net:-bridge}
     ports:
       - 127.0.0.1:4873:4873/tcp
