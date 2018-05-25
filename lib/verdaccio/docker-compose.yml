@@ -4,6 +4,8 @@ services:
     image: verdaccio/verdaccio:2.7
     restart: always
     network_mode: ${net:-bridge}
+    environment:
+      - NPM_TOKEN
     ports:
       - 127.0.0.1:4873:4873/tcp
     volumes:
