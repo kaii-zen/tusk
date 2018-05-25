@@ -64,8 +64,9 @@ class Tusk {
               })
             })
 
-            return concat(forkJoin(...dependencies.map(dep => ctx[dep] ? ctx[dep] : Promise.resolve())), Observable.of(0))
-              .flatMap(() => action())
+            return concat(forkJoin(...dependencies.map(dep => ctx[dep])), Observable.of(0))
+              .filter(x => x === 0)
+              .flatMap(() => action(ctx, task))
               .do(null, null, () => {
                 task.title += ' - done!'
                 ctx[name].next('done')
