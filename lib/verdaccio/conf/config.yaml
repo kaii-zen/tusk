@@ -1,22 +1,13 @@
 max_body_size: 200mb
-auth:
-  htpasswd:
-    file: /verdaccio/htpasswd
-    max_users: 1
 uplinks:
   npmjs:
     url: https://registry.npmjs.org/
-    auth:
-      type: bearer
-      token_env: true # defaults to `process.env['NPM_TOKEN']`
+    headers:
+      Authorization: Bearer 42d7c62b-0488-45bb-b727-106c52c9c674
 
 storage: /verdaccio/storage
 packages:
-  '@*/*':
-    access: $all
-    publish: $authenticated
-    proxy: npmjs
   '**':
-    access: $all
-    publish: $authenticated
+    access: $anonymous
+    publish: $anonymous
     proxy: npmjs
