@@ -6,6 +6,10 @@ auth:
 uplinks:
   npmjs:
     url: https://registry.npmjs.org/
+    auth:
+      type: bearer
+      token_env: true # defaults to `process.env['NPM_TOKEN']`
+
 storage: /verdaccio/storage
 packages:
   '@*/*':
