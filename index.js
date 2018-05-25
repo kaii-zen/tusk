@@ -50,8 +50,6 @@ class Tusk {
           task: (ctx, task) => {
             const dependencies$ = dependencies.map(dep => [dep, ctx[dep]])
             dependencies$.forEach(([dep, dep$]) => {
-              if (!dep$) return
-
               dep$.next(name)
               dep$.subscribe(null, null, () => {
                 task.title =
